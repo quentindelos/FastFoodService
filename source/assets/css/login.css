@@ -1,0 +1,189 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-image: url('https://smashmade.fastfoodservice.fr/source/assets/img/wplogin.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: inherit;
+    background-size: cover;
+    background-position: center;
+    filter: blur(6px);
+    z-index: -1;
+}
+
+/* ✅ Grand bloc centré, bien espacé */
+.login-container {
+    width: 100%;
+    max-width: 500px;
+    height: auto;
+    min-height: 80vh;
+    background-color: rgba(255, 255, 255, 0.7);
+    padding: 50px 30px;
+    border-radius: 20px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+}
+
+/* Titre */
+.login-container h2 {
+    font-size: 30px;
+    color: #FF6600;
+    margin-bottom: 40px;
+}
+
+/* Labels */
+label {
+    font-size: 18px;
+    font-weight: bold;
+    display: block;
+    text-align: left;
+    margin: 15px 0 5px;
+}
+
+/* Champs de saisie grands */
+input[type="email"],
+input[type="password"] {
+    width: 100%;
+    padding: 18px 20px;
+    font-size: 18px;
+    border-radius: 12px;
+    border: 1px solid #ccc;
+    margin-bottom: 20px;
+    box-sizing: border-box;
+}
+
+/* Gros bouton */
+button {
+    width: 100%;
+    padding: 18px;
+    font-size: 20px;
+    font-weight: bold;
+    background-color: #FF6600;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-top: 20px;
+}
+
+button:hover {
+    background-color: #e65c00;
+}
+
+/* Liens bas */
+.register-link,
+.forgot-password-link {
+    margin-top: 25px;
+    font-size: 16px;
+}
+
+.register-link a,
+.forgot-password-link a {
+    color: #FF6600;
+    text-decoration: none;
+}
+
+.register-link a:hover,
+.forgot-password-link a:hover {
+    text-decoration: underline;
+}
+
+/* Erreur */
+.error {
+    color: red;
+    font-size: 16px;
+    margin-bottom: 15px;
+}
+
+/* Responsive pour petits mobiles */
+@media screen and (max-width: 480px) {
+/* Fond dégradé ou image floutée */
+body {
+    margin: 0;
+    font-family: 'Arial', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Bloc de connexion au centre, taille parfaite */
+.login-container {
+    background-color: rgba(255, 255, 255, 0.7);
+    width: 100%;
+    max-width: 350px;
+    border-radius: 25px;
+    padding: 40px 30px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    box-sizing: border-box;
+}
+
+
+/* Champs */
+input[type="email"],
+input[type="password"] {
+    width: 100%;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    border: none;
+    background-color: #f2f2f2;
+    border-radius: 15px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+/* Lien mot de passe oublié */
+.forgot-password-link {
+    text-align: right;
+    font-size: 13px;
+    margin-top: -15px;
+    margin-bottom: 25px;
+}
+
+
+/* Bouton de login */
+button {
+    width: 100%;
+    padding: 14px;
+    color: white;
+    font-size: 17px;
+    border: none;
+    border-radius: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+
+/* Lien inscription */
+.register-link {
+    margin-top: 25px;
+    font-size: 14px;
+}
+
+
+.register-link a:hover {
+    text-decoration: underline;
+}
+}

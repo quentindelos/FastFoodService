@@ -1,0 +1,4 @@
+AuthType Basic
+AuthName "Espace Employe"
+AuthUserFile /home/fastfoq/smashmade/EmployeService/.htpasswd
+Require valid-user
