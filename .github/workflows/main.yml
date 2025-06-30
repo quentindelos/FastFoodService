@@ -22,8 +22,8 @@ jobs:
         with:
           host: ftp.cluster100.hosting.ovh.net
           username: fastfoq
-          password: ${{ secrets.SFTP_PASSWORD }}
+          password: ${{ secrets.FTP_PASSWORD }}
           port: 22
           source: ${{ steps.files.outputs.changed_files }}
-          target: /home/fastfoq/smashmade/
+          target: /home/fastfoq/soulmade/
           strip_components: 0
