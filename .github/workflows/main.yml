@@ -1,4 +1,4 @@
-name: Deploy to SFTP on Push
+name: Deploy ALL files to SFTP
 
 on:
   push:
@@ -12,18 +12,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get list of changed files in the last commit
-        id: files
-        run: |
-          echo "changed_files=$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }} | paste -sd ',' -)" >> $GITHUB_OUTPUT
-
-      - name: Upload changed files via SFTP
+      - name: Upload all files via SFTP
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ftp.cluster100.hosting.ovh.net
           username: fastfoq
           password: ${{ secrets.FTP_PASSWORD }}
           port: 22
-          source: ${{ steps.files.outputs.changed_files }}
-          target: /home/fastfoq/soulmade/
+          source: "."
+          target: "/home/fastfoq/soulmade/"
           strip_components: 0
