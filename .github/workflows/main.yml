@@ -17,8 +17,8 @@ jobs:
           server: ftp.cluster100.hosting.ovh.net
           username: fastfoq
           password: ${{ secrets.FTP_PASSWORD }}
-          port: 22
-          protocol: sftp
+          port: 21
+          protocol: ftp
           local-dir: ./
           server-dir: /home/fastfoq/soulmade/
           exclude: |
