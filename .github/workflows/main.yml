@@ -1,24 +1,28 @@
-name: Deploy ALL files to SFTP
+name: Deploy to OVH (FTPS)
 
 on:
   push:
     branches: [ "main" ]
 
 jobs:
-  deploy:
+  ftp-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Upload all files via SFTP
-        uses: appleboy/scp-action@v0.1.7
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          host: ftp.cluster100.hosting.ovh.net
+          server: ftp.cluster100.hosting.ovh.net
           username: fastfoq
           password: ${{ secrets.FTP_PASSWORD }}
-          port: 22
-          source: "."
-          target: "/home/fastfoq/soulmade/"
-          strip_components: 0
+          port: 21
+          protocol: ftps
+          local-dir: ./
+          server-dir: /home/fastfoq/soulmade/
+          exclude: |
+            **/.git*
+            **/.github*
+            **/node_modules*
+            **/vendor*
