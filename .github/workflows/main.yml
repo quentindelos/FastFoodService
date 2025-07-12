@@ -1,34 +1,27 @@
-name: deploy
+name: FTP Deploy
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
-  web-deploy:
-    name:  Deploy
+  ftp-deploy:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-versions: [ '18' ]
     steps:
-    - name:  Get latest code
-      uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-    - name: Use Node.js ${{ matrix.node-versions }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-versions }}
-
-    - name: Build
-      run: |
-        npm ci
-        npm run prod
-    
-    - name:  Sync files
-      uses: SamKirkland/FTP-Deploy-Action@4.3.0
+    - name: FTP Deploy
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ftp.cluster100.hosting.ovh.net
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        server-dir: ./home/fastfoq/soulmade/
+        protocol: ftp
+        port: 21
+        local-dir: ./
+        server-dir: soulmade/
+        exclude: |
+          **/.git*
+          **/.github*

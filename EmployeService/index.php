@@ -13,19 +13,77 @@ try {
     die("Erreur de connexion à la base de données : " . $e->getMessage());
 }
 
+// ---- OVH SMS ----
+$ovh = new Api(
+    'e50da5206b6a2662',
+    'b71175e94cc92c8d6ff38ed5e76a8f71',
+    'ovh-eu',
+    '5ab647ffc4d5d4006ff040d584342e7f'
+);
+
+function enleverAccents($texte) {
+    return iconv('UTF-8', 'ASCII//TRANSLIT', $texte);
+}
+function envoyerSMS($numero, $message) {
+    global $ovh;
+    $serviceName = 'sms-dq32673-1';
+    try {
+        // $message = enleverAccents($message); // <- supprime cette ligne
+        $ovh->post("/sms/$serviceName/jobs", [
+            'receivers' => [$numero],
+            'message' => $message,
+            'priority' => 'high',
+            'senderForResponse' => false,
+            'noStopClause' => true,
+            'sender' => 'SmashMade'
+        ]);
+    } catch (Exception $e) {
+        error_log('Erreur envoi SMS : ' . $e->getMessage());
+    }
+}
+function envoyerMail($email, $message) {
+    $sujet = "Commande prête - SmashMade";
+    $headers = "From: no-reply@smashmade.fr\r\n" .
+               "Reply-To: no-reply@smashmade.fr\r\n" .
+               "Content-Type: text/plain; charset=UTF-8\r\n";
+    mail($email, $sujet, $message, $headers);
+}
+
 // Passage automatique "Paiement validé" -> "En cuisine" sur les commandes des 24 dernières heures
 $pdo->query("UPDATE commandes SET statut = 'En cuisine' WHERE statut = 'Paiement validé' AND date_commande >= (NOW() - INTERVAL 24 HOUR)");
 
 // POST - Mise à jour statuts manuelle
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['commande_id'])) {
+    $commande_id = $_POST['commande_id'];
+    $wasReady = false;
     if (isset($_POST['new_statut'])) {
         $new_statut = $_POST['new_statut'];
+        if ($new_statut === "Prête") {
+            $wasReady = true;
+        }
         $stmt = $pdo->prepare("UPDATE commandes SET statut = ? WHERE id = ?");
-        $stmt->execute([$new_statut, $_POST['commande_id']]);
+        $stmt->execute([$new_statut, $commande_id]);
     }
     if (isset($_POST['receptionnee'])) {
         $stmt = $pdo->prepare("UPDATE commandes SET statut = 'Terminée' WHERE id = ?");
-        $stmt->execute([$_POST['commande_id']]);
+        $stmt->execute([$commande_id]);
+    }
+    // ---- ENVOI SMS/MAIL ----
+    if ($wasReady) {
+        $stmt = $pdo->prepare("SELECT * FROM commandes WHERE id = ?");
+        $stmt->execute([$commande_id]);
+        $commande = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($commande) {
+            $numeroCommande = $commande['nom_commande'] ? $commande['nom_commande'] : $commande['id'];
+            // Accents autorisés, pas d'emojis
+            //$message = "Bonjour ! Votre commande n°{$numeroCommande} est prête à être récupérée. Merci pour votre commande et bon appétit !";//2 crédit
+            $message = "Bonjour ! Votre commande n°{$numeroCommande} est prête. Bon appétit !"; //1 crédit
+            if (!empty($commande['tel_clientFromStripe'])) {
+                envoyerSMS($commande['tel_clientFromStripe'], $message);
+            } elseif (!empty($commande['mail_clientFromStripe'])) {
+                envoyerMail($commande['mail_clientFromStripe'], $message);
+            }
+        }
     }
     header("Location: ".$_SERVER['PHP_SELF']);
     exit;
@@ -63,10 +121,10 @@ function getClientNameByEmail($pdo, $email) {
 // Récupération de l'ID commande pour affichage détail (popup)
 $details_commande_id = isset($_GET['details']) ? intval($_GET['details']) : null;
 if ($details_commande_id) {
-    $stmt = $pdo->prepare("SELECT id FROM commandes WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT nom_commande FROM commandes WHERE id = ?");
     $stmt->execute([$details_commande_id]);
     $cmd = $stmt->fetch(PDO::FETCH_ASSOC);
-    $num = $cmd ? $cmd['id'] : '';
+    $num = $cmd ? $cmd['nom_commande'] : '';
 }
 ?>
 <!DOCTYPE html>
@@ -76,7 +134,7 @@ if ($details_commande_id) {
     <meta http-equiv="refresh" content="10">
     <title>
         <?php if ($details_commande_id): ?>
-            Commande #<?= htmlspecialchars($num) ?> – SmashMade
+            Commande <?= htmlspecialchars($num) ?> – SmashMade
         <?php else: ?>
             Commandes – SmashMade
         <?php endif; ?>
@@ -101,16 +159,16 @@ if ($details_commande_id) {
             <h1 class="text-2xl md:text-3xl font-bold flex items-center">
                 Commandes en cours
                 <?php
-                if ($details_commande_id) {
-                    echo '<span class="ml-2 text-blue-200 font-bold text-2xl">CMD #'.htmlspecialchars($details_commande_id).'</span>';
+                if ($details_commande_id && $num) {
+                    echo '<span class="ml-2 text-blue-200 font-bold text-2xl">'.htmlspecialchars($num).'</span>';
                 }
                 ?>
             </h1>
             <div class="flex items-center gap-3">
+                <?php if(!$details_commande_id): ?>
                 <div class="text-sm md:text-base">
                     <span id="current-time" class="font-medium">00:00:00</span>
                 </div>
-                <?php if(!$details_commande_id): ?>
                 <div class="flex items-center gap-2">
                     <span class="text-sm md:text-base">Commandes actives:</span>
                     <span id="active-orders-count" class="bg-white text-blue-800 font-bold px-2 py-1 rounded-md">
@@ -124,16 +182,17 @@ if ($details_commande_id) {
                         ?>
                     </span>
                 </div>
-                <?php endif; ?>
                 <a href="/EmployeService/cuisine"
                     class="ml-8 px-4 py-2 bg-white text-blue-800 rounded-md font-semibold shadow hover:bg-blue-100 transition"
                     target="_blank" rel="noopener">
                     Accès cuisine
                 </a>
+                <?php endif; ?>
             </div>
         </div>
     </header>
-    <main class="container mx-auto py-6 px-4">
+    <main class="container mx-auto py-6 px-4
+        <?php if($details_commande_id) echo ' flex items-center justify-center min-h-[80vh]'; ?>">
     <?php
     // ---- PAGE DETAILS (POPUP) -----
     if ($details_commande_id) {
@@ -141,21 +200,23 @@ if ($details_commande_id) {
         $stmt->execute([$details_commande_id]);
         $commande = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($commande) {
+            $numeroCommande = $commande['nom_commande'] ? $commande['nom_commande'] : $commande['id'];
             $details = getDetailsCommande($pdo, $commande['id']);
             $nom_client = null;
             if ($commande['mail_clientFromStripe']) {
                 $nom_client = getClientNameByEmail($pdo, $commande['mail_clientFromStripe']);
             }
-            echo '<div class="max-w-2xl mx-auto bg-white rounded-xl shadow-md p-8">';
+            // Début du conteneur centré
+            echo '<div class="max-w-2xl w-full bg-white rounded-xl shadow-md p-8">';
             echo '<div class="flex items-center justify-between mb-6">';
-            echo '<h2 class="text-2xl font-bold">Détail de la commande <span class="text-blue-700">CMD #'.$commande['id'].'</span></h2>';
+            echo '<h2 class="text-2xl font-bold">Détail de la commande <span class="text-blue-700">'.$numeroCommande.'</span></h2>';
             echo '<a href="?" class="inline-block px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 font-semibold text-gray-700 transition">Fermer</a>';
             echo '</div>';
             echo '<div class="mb-4">';
             echo '<span class="text-gray-500">Statut :</span> <span class="font-semibold">';
             echo $commande['statut'] === 'En attente' ? 'En attente de paiement' : htmlspecialchars($commande['statut']);
             echo '</span><br>';
-            echo '<span class="text-gray-500">Date :</span> <span class="font-semibold">'.afficher_date_simplifiee($commande['date_commande']).'</span><br>';
+            // On ne met plus la date ici !
             echo '<span class="text-gray-500">Client :</span> <span class="font-semibold">';
             if ($nom_client) {
                 echo htmlspecialchars($nom_client);
@@ -225,11 +286,14 @@ if ($details_commande_id) {
                 </form>';
             }
             echo '</div>';
+            echo '</div>'; // ferme la popup centrée
+            echo '</main></body></html>';
+            exit;
         } else {
             echo '<div class="text-center text-red-600 font-semibold text-lg">Commande introuvable !</div>';
+            echo '</main></body></html>';
+            exit;
         }
-        echo '</main></body></html>';
-        exit;
     }
 
     // ---- COMMANDES 24H ----
@@ -250,31 +314,33 @@ if ($details_commande_id) {
     function renderCommandesSection($titre, $commandes, $statut_couleur, $pdo = null) {
         if (count($commandes) === 0) return;
         echo '<h2 class="text-xl font-bold mb-4 mt-8">'.$titre.'</h2>';
-        echo '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
+        // Nouvelle grille responsive
+        echo '<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">';
         foreach ($commandes as $commande) {
             $details_link = '<a href="?details='.$commande['id'].'" class="text-blue-600 hover:underline">Voir détails</a>';
             $prix = number_format($commande['montant_total'], 2, ',', ' ');
             echo '
-            <div class="order-card bg-white rounded-lg shadow-md overflow-hidden">
-                <div class="bg-gray-100 p-4 flex justify-between items-center">
+            <div class="order-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col p-4">
+                <div class="flex justify-between items-center mb-2">
                     <div class="flex items-center">
                         <div class="status-indicator '.$statut_couleur.' mr-2"></div>
-                        <h2 class="text-xl font-bold">CMD&nbsp;#'.$commande['id'].'</h2>';
+                        <h2 class="text-xl font-bold">'.htmlspecialchars($commande['nom_commande'] ?? $commande['id']).'</h2>';
             if (in_array($commande['statut'], ['En attente', 'En cuisine']) && est_en_retard($commande['date_commande'])) {
                 echo '<span class="badge-retard ml-2">Retard !</span>';
             }
             echo '
                     </div>
-                    <div class="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <div class="flex items-center text-gray-500 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         <span class="elapsed-time font-medium">'.afficher_date_simplifiee($commande['date_commande']).'</span>
                     </div>
                 </div>
-                <div class="p-4">
+                <div class="flex-1">
                     <div class="mb-2">'.$details_link.'</div>
-                    <div class="order-price mb-3">Total : '.$prix.' €</div>';
+                    <div class="order-price mb-2">Total : '.$prix.' €</div>
+                </div>';
 
-            // --- Bouton "Mettre en cuisine" si EN ATTENTE
+            // Boutons (identiques à ton code existant)
             if ($commande['statut'] === 'En attente') {
                 echo '
                 <form method="POST">
@@ -289,8 +355,6 @@ if ($details_commande_id) {
                     </button>
                 </form>';
             }
-
-            // --- Bouton "Commande prête" si EN CUISINE
             if ($commande['statut'] === 'En cuisine') {
                 echo '
                 <form method="POST">
@@ -305,8 +369,6 @@ if ($details_commande_id) {
                     </button>
                 </form>';
             }
-
-            // --- Bouton "Réceptionnée" si PRETE
             if ($commande['statut'] === 'Prête') {
                 echo '
                 <form method="POST">
@@ -321,10 +383,7 @@ if ($details_commande_id) {
                     </button>
                 </form>';
             }
-
-            echo '
-                </div>
-            </div>';
+            echo '</div>';
         }
         echo '</div>';
     }
@@ -345,12 +404,14 @@ if ($details_commande_id) {
     ?>
     </main>
     <script>
+        <?php if(!$details_commande_id): ?>
         function updateClock() {
             const now = new Date();
             document.getElementById('current-time').textContent = now.toLocaleTimeString('fr-FR');
         }
         updateClock();
         setInterval(updateClock, 1000);
+        <?php endif; ?>
     </script>
 </body>
 </html>

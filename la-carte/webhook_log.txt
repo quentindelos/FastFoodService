@@ -1,0 +1,8 @@
+[2025-05-29 20:39:12] commande_id=69 | email= | phone=+33787442170
+✅ Commande 69 traitée avec succès
+[2025-05-29 20:42:21] commande_id=70 | email= | phone=+33787442170
+✅ Commande 70 traitée avec succès
+[2025-05-29 20:44:26] commande_id=72 | email= | phone=+33787442170
+✅ Commande 72 traitée avec succès
+[2025-05-29 20:46:19] commande_id=74 | email= | phone=+33787442170
+✅ Commande 74 traitée avec succès
